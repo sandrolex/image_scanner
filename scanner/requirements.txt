@@ -1,0 +1,4 @@
+requests_async>=0.6.2
+flask>=1.1.2
+flask_restful>=0.3.8
+docker>=4.1.0
