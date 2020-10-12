@@ -24,14 +24,6 @@ p = Packages(
 
 t = Trivy(server=conf._data['trivy_url'])
 
-e = Elastic(
-    conf._data['es_url'], 
-    conf._data['es_user'],
-    conf._data['es_password'],
-    pkgsPath=conf._data['es_pkgs_path'],
-    vulnsPath=conf._data['es_vulns_path']
-)
-
 vulns = {}
 app = Flask(__name__)
 
@@ -40,14 +32,24 @@ def image_scan():
     s = time.perf_counter()
     image = request.form['image']
 
+    
     if not p.getPkgs(image):
         logging.error("[API] Error Api 01")
         quit()
+
+
     dst = conf._data['registry_url'] + '/' + image
     if not t.scanImage(dst):
         logging.error("[API] Error scanning Image")
         quit()
     
+    e = Elastic(
+        conf._data['es_url'], 
+        conf._data['es_user'],
+        conf._data['es_password'],
+        pkgsPath=conf._data['es_pkgs_path'],
+        vulnsPath=conf._data['es_vulns_path']
+    )
     e.addVulns(image, t._vulnsQueue, conf._data['es_vulns_workers'])
     e.addPkgs(image, p._state[0]['pkgs'], conf._data['es_pkgs_workers'])
     elapsed = time.perf_counter() - s 
@@ -81,6 +83,9 @@ def image_scan():
         }
     }
 
+    t._vulnsQueue = []
+    p._state = []
+    
     return out
 
 if __name__ == '__main__':

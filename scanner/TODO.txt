@@ -1,10 +1,10 @@
-1. add logger
-2. add configuration
+1. add logger ... reg_poller
+2. add configuration ... reg_poller
 2. split trivy / pkgs
 3. split ES
 4. clean up (rm /tmp/json && docker rmi)
 5. Check data in ES (looks like some are not written, ex: debian buster)
-
+6. Put trivy server in the same container as api
 
 Later
 - mTLS
