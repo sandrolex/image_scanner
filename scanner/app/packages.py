@@ -31,6 +31,8 @@ class Packages:
             self._flavor = 'debian'
         elif 'CentOS' in res_str:
             self._flavor = 'centos'
+        elif 'Alpine' in res_str:
+            self._flavor = 'alpine'
         else:
             logging.error('[PKG] Error Packages.getFlavor 01')
             quit()
@@ -45,6 +47,29 @@ class Packages:
         except:
             print("[PKG] Error Packages.pullImage 01")
             quit()
+
+    ## TODO: check how to parse alpgine pkg version
+    ## https://github.com/aquasecurity/trivy/blob/87ff0c1bbc9d99899c0edfd879deaee01df87ef2/pkg/scanner/utils/utils.go#L62
+    def getAlpinePkgs(self, image):
+        quit()
+        try:
+            res = self._client.containers.run(image, 'apk list', entrypoint='')
+        except:
+            logging.error("[PKG] Error Packages.getAlpinePkgs 01")
+        
+        packages = res.decode('utf-8')
+        lines = packages.split('\n')
+        pkgs = []
+        for l in lines[:-1]:
+            words = l.split()
+            pkg = {'name': words[1], 'version': words[2]}
+            pkgs.append(pkg)
+        image = {
+            'name': image,
+            'pkgs': pkgs
+        }
+        self._state.append(image)
+
 
     def getDebianPkgs(self, image):
         try:
