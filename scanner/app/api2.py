@@ -17,7 +17,7 @@ conf = Config('../conf/scanner.json')
 
 configure_logging(conf._data['log_level'])
 
-t = Trivy(server=conf._data['trivy_url'])
+
 
 vulns = {}
 app = Flask(__name__)
@@ -28,11 +28,14 @@ async def runParallel(image):
         user=conf._data['registry_user'],
         passwd=conf._data['registry_password']
     )
-    #dst = conf._data['registry_url'] + '/' + image
+
+    t = Trivy(server=conf._data['trivy_url'])
+
+    dst = conf._data['registry_url'] + '/' + image
     #p.getPkgs(image)
     #t.scanImage(dst)
 
-    res = await asyncio.gather(p.getPkgs(image), p.getPkgs('centos:7'))
+    res = await asyncio.gather(p.getPkgs(image), t.scan(dst))
     print(res)
 
 
