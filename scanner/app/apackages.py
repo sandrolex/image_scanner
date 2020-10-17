@@ -69,7 +69,8 @@ class Packages:
                 config={
                     'Cmd': ['cat', '/etc/os-release'],
                     'Image': image,
-                    'Entrypoint': ''
+                    'Entrypoint': '',
+                    'AutoRemove': True
                 },
                 name=name
             )
@@ -102,7 +103,8 @@ class Packages:
             config={
                 'Cmd': ['dpkg', '-l'],
                 'Image': image,
-                'Entrypoint': ''
+                'Entrypoint': '',
+                'AutoRemove': True
                 },
                 name=name
             )
@@ -133,7 +135,8 @@ class Packages:
             config={
                 'Cmd': ['rpm', '-qa', '--queryformat', '%{NAME} %{VERSION}-%{RELEASE}\n'],
                 'Image': image,
-                'Entrypoint': ''    
+                'Entrypoint': '',
+                'AutoRemove': True   
                 },
                 name=name
             )

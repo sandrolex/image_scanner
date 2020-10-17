@@ -82,33 +82,7 @@ async def runParallel(image, push=False):
         print("ERROR PKGS")
     else:
         print("UPDATED PKGS")
-    
-
-    #f = open('/tmp/abc.json', 'w')
-    #for l in res[0]['pkgs']:
-    #    name = createHash(l['name'], l['version'])
-    #    idx = {'index': {'_id': name}}
-    #    out = json.dumps(idx) + '\n'
-    #    f.write(out)
-    #    l['index'] = name
-    #    l['image'] = dst
-    #    l['flavor'] = res[0]['flavor']
-    #    out = json.dumps(l) + '\n'
-    #    f.write(out)
-    #f.close()
-    # 
-    #     
-    #fv = open('/tmp/vuln.json', 'w')
-    #for l in res[1]:
-    #    name = createHash(l['image'],l['vulnId'])
-    #    idx = {'index': {'_id': name}}
-    #    out = json.dumps(idx) + '\n'
-    #    fv.write(out)
-    #    l['index'] = name
-    #    out = json.dumps(l) + '\n'
-    #    fv.write(out)
-    #fv.close()
-
+ 
 def createHash(a,b):
     tmp = a + ':' + b
     m = hashlib.sha256()
@@ -130,25 +104,6 @@ def image_scan():
         push = True
     asyncio.run(runParallel(image, push))
     
-    #if not p.getPkgs(image):
-    #    logging.error("[API] Error Api 01")
-    #    quit()
-
-
-    #dst = conf._data['registry_url'] + '/' + image
-    #if not t.scanImage(dst):
-    #    logging.error("[API] Error scanning Image")
-    #    quit()
-    
-    #e = Elastic(
-    #    conf._data['es_url'], 
-#        conf._data['es_user'],
-    #    conf._data['es_password'],
-    #    pkgsPath=conf._data['es_pkgs_path'],
-    #    vulnsPath=conf._data['es_vulns_path']
-    #)
-    #e.addVulns(image, t._vulnsQueue, conf._data['es_vulns_workers'])
-    #e.addPkgs(image, p._state[0]['pkgs'], conf._data['es_pkgs_workers'])
     elapsed = time.perf_counter() - s 
     logging.info(f"[API] OK {image} {elapsed:0.2f} seconds")
     
