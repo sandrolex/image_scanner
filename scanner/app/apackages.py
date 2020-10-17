@@ -6,8 +6,6 @@ import logging, time
 import base64
 import random
 
-
-
 class Packages:
     def __init__(self, reg_url = '', user='', passwd=''):
         self._reg_url = reg_url
@@ -52,7 +50,7 @@ class Packages:
             await self._state[image]['client'].images.pull(image, auth=token)
             elapsed = time.perf_counter() - s
             logging.debug(f"{self.i} Done pulling {image} in {elapsed:0.2f} seconds")
-            self._state[image]['pulleld'] = True
+            self._state[image]['pulled'] = True
         except aiodocker.DockerError as e:
             logging.error(f"{self.i} DockerError {e.status} {e.message}")
             logging.debug(f"{self.i} Error Packages.pullImage 01 {image}")
@@ -70,7 +68,6 @@ class Packages:
                     'Cmd': ['cat', '/etc/os-release'],
                     'Image': image,
                     'Entrypoint': '',
-                    'AutoRemove': True
                 },
                 name=name
             )
@@ -86,13 +83,13 @@ class Packages:
                 self._state[image]['flavor'] = 'alpine'
             else:
                 raise Exception ('Unsupported OS type')
-            
+                
             elapsed = time.perf_counter() - s
             logging.debug(f"{self.i} Found flavor: {self._state[image]['flavor']} {image} {elapsed:0.2f} seconds")
             await container.stop()
             await container.delete()
         except Exception as e:
-            logging.error(f"{self.i} {e.status} {e.message}")
+            logging.error(f"{self.i} DokerError {e.status} {e.message}")
             logging.debug(f"{self.i} Error Packages.getFlavor 02 {image}")
             raise e
 
@@ -104,7 +101,6 @@ class Packages:
                 'Cmd': ['dpkg', '-l'],
                 'Image': image,
                 'Entrypoint': '',
-                'AutoRemove': True
                 },
                 name=name
             )
@@ -136,7 +132,6 @@ class Packages:
                 'Cmd': ['rpm', '-qa', '--queryformat', '%{NAME} %{VERSION}-%{RELEASE}\n'],
                 'Image': image,
                 'Entrypoint': '',
-                'AutoRemove': True   
                 },
                 name=name
             )
@@ -161,7 +156,6 @@ class Packages:
 
     async def getPkgs(self, image):
         endpoint = self._reg_url + '/' + image
-        await self.initialize(image)
 
         try:
             if not self._state[endpoint]['pulled']:
@@ -169,7 +163,7 @@ class Packages:
 
             await self.getFlavor(endpoint)
 
-            logging.info(f"{self.i} Getting package list for {endpoint} ...")
+            logging.debug(f"{self.i} Getting package list for {endpoint} ...")
             s = time.perf_counter()
             if self._state[endpoint]['flavor'] == 'debian':
                 await self.getDebianPkgs(endpoint)
@@ -178,9 +172,8 @@ class Packages:
             else:
                 logging.error(f"{self.i} Error Packages getPkgs 01 {endpoint}")
             elapsed = time.perf_counter() - s
-            logging.info(f"{self.i} Done getPkgs {endpoint} {elapsed:0.2f} seconds")
+            logging.debug(f"{self.i} Done getPkgs {endpoint} {elapsed:0.2f} seconds")
         except Exception as e:
-            #logging.debug(f"{self.i} DockerError {e.status} {e.message}")
             logging.error(f"{self.i} Could not complete for image {endpoint}")
 
 
@@ -192,24 +185,3 @@ class Packages:
         }
 
 
-
-#if __name__ == '__main__':
-#    p = Packages('lobs.local', 'testuser', 'testpassword')
-#    image = 'centos:7'
-#    image2 = 'ubuntu:20.04'
-    #image = 'lobs.local/ubuntu:20.04'
-#    loop = asyncio.get_event_loop()
-    #loop.run_until_complete(p.login())
-    #loop.run_until_complete(p.pullImage(image))
-    #loop.run_until_complete(p.getFlavor(image))
-    #loop.run_until_complete(p.getCentosPkgs(image))
-    #loop.run_until_complete(p.getDebianPkgs(image))
-#    loop.run_until_complete(p.getPkgs(image))
-#    loop.run_until_complete(p.getPkgs(image2))
-#    loop.run_until_complete(p.close())
-#    loop.close()
-#    print(p._state)
-
-
-    
-   

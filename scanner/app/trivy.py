@@ -2,7 +2,6 @@ import os
 import json
 import time, logging
 import asyncio
-from aiofile import AIOFile
 
 
 class Trivy():
@@ -52,7 +51,7 @@ class Trivy():
             }
             self._vulnsQueue.append(vuln)
         
-        logging.info(f"[TRY] Done scaniing {image} found {len(self._vulnsQueue)} vulns")
+        logging.debug(f"[TRY] Done scaniing {image} found {len(self._vulnsQueue)} vulns")
 
         return self._vulnsQueue
         

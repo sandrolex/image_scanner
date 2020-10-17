@@ -5,10 +5,7 @@ from apackages import Packages
 from elastic import Elastic
 import time, logging, sys
 import asyncio
-import json
-import base64
 import hashlib
-import requests
 
 def configure_logging(level):
     logging.basicConfig(
@@ -40,60 +37,29 @@ async def runParallel(image, push=False):
         reg_pass = conf._data['registry_password']
     )
 
-    dst = conf._data['registry_url'] + '/' + image
+    e = Elastic(
+        conf._data['es_url'],
+        conf._data['es_user'],
+        conf._data['es_password'],
+        conf._data['es_pkgs_path'],
+        conf._data['es_vulns_path']
+    )
 
-    await p.pullImage(dst)
-    result = await asyncio.gather(p.getPkgs(image), t.scan(dst, local=True))
+    image_path = conf._data['registry_url'] + '/' + image
 
-    if not push:
-        return
+    await p.pullImage(image_path)
 
-    pkgs_url = 'http://lobs.local:9200/pkgs/_bulk?pretty&refresh'
-    headers = {'Content-Type': 'application/json'}
-    out = ''
-    for l in result[0]['pkgs']:
-        name = createHash(l['name'], l['version'])
-        idx = {'index': {'_id': name}}
-        out += json.dumps(idx) + '\n'
-        l['index'] = name
-        l['image'] = dst
-        l['flavor'] = result[0]['flavor']
-        out += json.dumps(l) + '\n'
-    res = requests.post(pkgs_url, headers=headers, data=out)
-    if res.status_code != 200 and res.status_code != 201:
-        print(res.status_code)
-        print(res.text)
-        print("ERROR PKGS")
-    else:
-        print("UPDATED PKGS")
+    result = await asyncio.gather(
+        p.getPkgs(image), 
+        t.scan(image_path, local=True)
+    )
 
-
-    vulns_url = 'http://lobs.local:9200/vulns/_bulk?pretty&refresh'
-    headers = {'Content-Type': 'application/json'}
-    out = ''
-    for v in result[1]:
-        name = createHash(v['image'], v['vulnId'])
-        idx = {'index': {'_id': name}}
-        out += json.dumps(idx) + '\n'
-        v['index'] = name
-        out += json.dumps(v) + '\n'
-    res = requests.post(vulns_url, headers=headers, data=out)
-    if res.status_code != 200 and res.status_code != 201:
-        print("ERROR PKGS")
-    else:
-        print("UPDATED PKGS")
+    if push:
+        xx = await asyncio.gather(
+            e.addBulkPkgs(image_path, result[0]),
+            e.addBulkVulns(image_path, result[1])
+        )
  
-def createHash(a,b):
-    tmp = a + ':' + b
-    m = hashlib.sha256()
-    m.update(tmp.encode('utf-8'))
-    return m.hexdigest()
-
-def createName(a, b):
-    tmp = a + ':' + b
-    enc = tmp.encode('utf-8')
-    b = base64.b64encode(enc)
-    return b.decode('utf-8')
 
 @app.route('/scan', methods=['POST'])
 def image_scan():
@@ -105,40 +71,8 @@ def image_scan():
     asyncio.run(runParallel(image, push))
     
     elapsed = time.perf_counter() - s 
-    logging.info(f"[API] OK {image} {elapsed:0.2f} seconds")
+    logging.debug(f"[API] OK {image} {elapsed:0.2f} seconds")
     
-    #total_v = len(t._vulnsQueue)
-    #total_p = len(p._state[0]['pkgs'])
-    th=0
-    tm=0
-    tl=0
-    tu = 0
-    #for v in t._vulnsQueue:
-    #    if v['severity'].lower() == 'high':
-    #        th += 1
-    #    elif v['severity'].lower() == 'medium':
-    #        tm += 1
-    #    elif v['severity'].lower() == 'low':
-    #        tl += 1
-    #    else:
-    #        tu += 0
-        
-    #out = {
-    #    'image': image, 
-    #    'pkgs': total_p,
-    #    'vulns': {
-    #        'total': total_v,
-    #        'high': th,
-    #        'medium': tm,
-    #        'low': tl,
-    #        'unknown': tu
-    #    }
-    #}
-
-    #t._vulnsQueue = []
-    #p._state = []
-    
-    #return out
     return "{}"
 
 if __name__ == '__main__':
