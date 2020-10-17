@@ -18,11 +18,13 @@ class Packages:
     
 
     async def initialize(self, image):
-        self._state[image] = {}
-        self._state[image]['client'] = aiodocker.Docker()
-        self._state[image]['flavor'] = ''
-        self._state[image]['pkgs'] = []
-        logging.debug(f"{self.i} Initialized for image " + image)
+        if not image in self._state:
+            self._state[image] = {}
+            self._state[image]['client'] = aiodocker.Docker()
+            self._state[image]['flavor'] = ''
+            self._state[image]['pkgs'] = []
+            self._state[image]['pulled'] = False
+            logging.debug(f"{self.i} Initialized for image " + image)
 
     async def finalize(self, image):
         await self._state[image]['client'].close()
@@ -41,12 +43,16 @@ class Packages:
 
 
     async def pullImage(self, image):
+        if not image in self._state:
+            await self.initialize(image)
         try:
+            logging.debug(f"{self.i} Pulling image: {image} ...")
             s = time.perf_counter()
             token = self.getAuth()
             await self._state[image]['client'].images.pull(image, auth=token)
             elapsed = time.perf_counter() - s
-            logging.debug(f"{self.i} Pulled image {image} in {elapsed:0.2f} seconds")
+            logging.debug(f"{self.i} Done pulling {image} in {elapsed:0.2f} seconds")
+            self._state[image]['pulleld'] = True
         except aiodocker.DockerError as e:
             logging.error(f"{self.i} DockerError {e.status} {e.message}")
             logging.debug(f"{self.i} Error Packages.pullImage 01 {image}")
@@ -54,12 +60,16 @@ class Packages:
         
 
     async def getFlavor(self, image):
+        logging.debug(f"{self.i} Getting flavor for {image} ...")
+        s = time.perf_counter()
+            
         try:
             name = await self.createContainerId(image)
             container = await self._state[image]['client'].containers.create_or_replace(
                 config={
                     'Cmd': ['cat', '/etc/os-release'],
                     'Image': image,
+                    'Entrypoint': ''
                 },
                 name=name
             )
@@ -75,8 +85,9 @@ class Packages:
                 self._state[image]['flavor'] = 'alpine'
             else:
                 raise Exception ('Unsupported OS type')
-
-            logging.debug(f"{self.i} Found flavor: {self._state[image]['flavor']} {image}")
+            
+            elapsed = time.perf_counter() - s
+            logging.debug(f"{self.i} Found flavor: {self._state[image]['flavor']} {image} {elapsed:0.2f} seconds")
             await container.stop()
             await container.delete()
         except Exception as e:
@@ -91,6 +102,7 @@ class Packages:
             config={
                 'Cmd': ['dpkg', '-l'],
                 'Image': image,
+                'Entrypoint': ''
                 },
                 name=name
             )
@@ -121,11 +133,12 @@ class Packages:
             config={
                 'Cmd': ['rpm', '-qa', '--queryformat', '%{NAME} %{VERSION}-%{RELEASE}\n'],
                 'Image': image,
+                'Entrypoint': ''    
                 },
                 name=name
             )
             await container.start()
-            time.sleep(0.2)
+            time.sleep(1)
             logs = await container.log(stdout=True)
             res_str = ''.join(logs)
             lines = res_str.split('\n')
@@ -145,21 +158,13 @@ class Packages:
 
     async def getPkgs(self, image):
         endpoint = self._reg_url + '/' + image
+        await self.initialize(image)
 
-        await self.initialize(endpoint)
-        
         try:
-            logging.info(f"{self.i} Pulling image: {endpoint} ...")
-            s = time.perf_counter()
-            await self.pullImage(endpoint)
-            elapsed = time.perf_counter() - s
-            logging.info(f"{self.i} Done pulling {endpoint} in {elapsed:0.2f} seconds")
+            if not self._state[endpoint]['pulled']:
+                await self.pullImage(endpoint)
 
-            logging.info(f"{self.i} Getting flavor for {endpoint} ...")
-            s = time.perf_counter()
             await self.getFlavor(endpoint)
-            elapsed = time.perf_counter() - s
-            logging.info(f"{self.i} Done getting flavor for {endpoint}  {elapsed:0.2f} seconds")
 
             logging.info(f"{self.i} Getting package list for {endpoint} ...")
             s = time.perf_counter()
@@ -171,7 +176,8 @@ class Packages:
                 logging.error(f"{self.i} Error Packages getPkgs 01 {endpoint}")
             elapsed = time.perf_counter() - s
             logging.info(f"{self.i} Done getPkgs {endpoint} {elapsed:0.2f} seconds")
-        except:
+        except Exception as e:
+            #logging.debug(f"{self.i} DockerError {e.status} {e.message}")
             logging.error(f"{self.i} Could not complete for image {endpoint}")
 
 

@@ -5,6 +5,9 @@
 4. clean up (rm /tmp/json && docker rmi)
 5. Check data in ES (looks like some are not written, ex: debian buster)
 6. Put trivy server in the same container as api
+7. alpine linux
+8. test with differente regs
+9. test scalling out
 
 Later
 - mTLS

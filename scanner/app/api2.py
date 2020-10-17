@@ -5,6 +5,10 @@ from apackages import Packages
 from elastic import Elastic
 import time, logging, sys
 import asyncio
+import json
+import base64
+import hashlib
+import requests
 
 def configure_logging(level):
     logging.basicConfig(
@@ -22,28 +26,109 @@ configure_logging(conf._data['log_level'])
 vulns = {}
 app = Flask(__name__)
 
-async def runParallel(image):
+async def runParallel(image, push=False):
     p = Packages(
         reg_url=conf._data['registry_url'],
         user=conf._data['registry_user'],
         passwd=conf._data['registry_password']
     )
 
-    t = Trivy(server=conf._data['trivy_url'])
+    t = Trivy(
+        server=conf._data['trivy_url'],
+        reg_url = conf._data['registry_url'],
+        reg_user = conf._data['registry_user'],
+        reg_pass = conf._data['registry_password']
+    )
 
     dst = conf._data['registry_url'] + '/' + image
-    #p.getPkgs(image)
-    #t.scanImage(dst)
 
-    res = await asyncio.gather(p.getPkgs(image), t.scan(dst))
-    print(res)
+    await p.pullImage(dst)
+    result = await asyncio.gather(p.getPkgs(image), t.scan(dst, local=True))
 
+    if not push:
+        return
+
+    pkgs_url = 'http://lobs.local:9200/pkgs/_bulk?pretty&refresh'
+    headers = {'Content-Type': 'application/json'}
+    out = ''
+    for l in result[0]['pkgs']:
+        name = createHash(l['name'], l['version'])
+        idx = {'index': {'_id': name}}
+        out += json.dumps(idx) + '\n'
+        l['index'] = name
+        l['image'] = dst
+        l['flavor'] = result[0]['flavor']
+        out += json.dumps(l) + '\n'
+    res = requests.post(pkgs_url, headers=headers, data=out)
+    if res.status_code != 200 and res.status_code != 201:
+        print(res.status_code)
+        print(res.text)
+        print("ERROR PKGS")
+    else:
+        print("UPDATED PKGS")
+
+
+    vulns_url = 'http://lobs.local:9200/vulns/_bulk?pretty&refresh'
+    headers = {'Content-Type': 'application/json'}
+    out = ''
+    for v in result[1]:
+        name = createHash(v['image'], v['vulnId'])
+        idx = {'index': {'_id': name}}
+        out += json.dumps(idx) + '\n'
+        v['index'] = name
+        out += json.dumps(v) + '\n'
+    res = requests.post(vulns_url, headers=headers, data=out)
+    if res.status_code != 200 and res.status_code != 201:
+        print("ERROR PKGS")
+    else:
+        print("UPDATED PKGS")
+    
+
+    #f = open('/tmp/abc.json', 'w')
+    #for l in res[0]['pkgs']:
+    #    name = createHash(l['name'], l['version'])
+    #    idx = {'index': {'_id': name}}
+    #    out = json.dumps(idx) + '\n'
+    #    f.write(out)
+    #    l['index'] = name
+    #    l['image'] = dst
+    #    l['flavor'] = res[0]['flavor']
+    #    out = json.dumps(l) + '\n'
+    #    f.write(out)
+    #f.close()
+    # 
+    #     
+    #fv = open('/tmp/vuln.json', 'w')
+    #for l in res[1]:
+    #    name = createHash(l['image'],l['vulnId'])
+    #    idx = {'index': {'_id': name}}
+    #    out = json.dumps(idx) + '\n'
+    #    fv.write(out)
+    #    l['index'] = name
+    #    out = json.dumps(l) + '\n'
+    #    fv.write(out)
+    #fv.close()
+
+def createHash(a,b):
+    tmp = a + ':' + b
+    m = hashlib.sha256()
+    m.update(tmp.encode('utf-8'))
+    return m.hexdigest()
+
+def createName(a, b):
+    tmp = a + ':' + b
+    enc = tmp.encode('utf-8')
+    b = base64.b64encode(enc)
+    return b.decode('utf-8')
 
 @app.route('/scan', methods=['POST'])
 def image_scan():
     s = time.perf_counter()
     image = request.form['image']
-    asyncio.run(runParallel(image))
+    push = False
+    if 'push' in request.form:
+        push = True
+    asyncio.run(runParallel(image, push))
     
     #if not p.getPkgs(image):
     #    logging.error("[API] Error Api 01")
