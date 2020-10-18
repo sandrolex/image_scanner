@@ -41,19 +41,20 @@ class Packages:
 
 
     async def pullImage(self, image):
-        if not image in self._state:
-            await self.initialize(image)
+        image_path = f"{image['registry']}/{image['repo']}:{image['tag']}"
+        if not image_path in self._state:
+            await self.initialize(image_path)
         try:
-            logging.debug(f"{self.i} Pulling image: {image} ...")
+            logging.debug(f"{self.i} Pulling image: {image_path} ...")
             s = time.perf_counter()
             token = self.getAuth()
-            await self._state[image]['client'].images.pull(image, auth=token)
+            await self._state[image_path]['client'].images.pull(image_path, auth=token)
             elapsed = time.perf_counter() - s
-            logging.debug(f"{self.i} Done pulling {image} in {elapsed:0.2f} seconds")
-            self._state[image]['pulled'] = True
+            logging.debug(f"{self.i} Done pulling {image_path} in {elapsed:0.2f} seconds")
+            self._state[image_path]['pulled'] = True
         except aiodocker.DockerError as e:
             logging.error(f"{self.i} DockerError {e.status} {e.message}")
-            logging.debug(f"{self.i} Error Packages.pullImage 01 {image}")
+            logging.debug(f"{self.i} Error Packages.pullImage 01 {image_path}")
             raise e
         
 
@@ -155,8 +156,7 @@ class Packages:
             raise e
 
     async def getPkgs(self, image):
-        endpoint = self._reg_url + '/' + image
-
+        endpoint = f"{image['registry']}/{image['repo']}:{image['tag']}"
         try:
             if not self._state[endpoint]['pulled']:
                 await self.pullImage(endpoint)
@@ -179,6 +179,9 @@ class Packages:
 
         await self.finalize(endpoint)
         return {
+            'registry': image['registry'],
+            'repo': image['repo'],
+            'tag': image['tag'],
             'image': endpoint, 
             'pkgs': self._state[endpoint]['pkgs'],
             'flavor': self._state[endpoint]['flavor']

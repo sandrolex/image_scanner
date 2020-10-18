@@ -23,7 +23,8 @@ class Trivy():
             self._reg_pass = reg_pass
     
     async def scan(self, image, local=True):
-        cmd = f"trivy client --remote {self._server} --quiet --format json  {image}"
+        image_path = f"{image['registry']}/{image['repo']}:{image['tag']}"
+        cmd = f"trivy client --remote {self._server} --quiet --format json  {image_path}"
         if not local:
             auth = f"TRIVY_USERNAME={self._reg_user} TRIVY_PASSWORD='{self._reg_pass}' TRIVY_AUTH_URL={self._reg_url} "
             cmd = auth +  cmd
@@ -45,13 +46,16 @@ class Trivy():
                 'pkg': v['PkgName'],
                 'version': v['InstalledVersion'],
                 'severity': v['Severity'],
-                'image': image,
+                'image': image_path,
                 'target': json_str[0]['Target'],
-                'flavor': json_str[0]['Type']
+                'flavor': json_str[0]['Type'],
+                'registry': image['registry'],
+                'repo': image['repo'],
+                'tag': image['tag']
             }
             self._vulnsQueue.append(vuln)
         
-        logging.debug(f"[TRY] Done scaniing {image} found {len(self._vulnsQueue)} vulns")
+        logging.debug(f"[TRY] Done scaniing {image_path} found {len(self._vulnsQueue)} vulns")
 
         return self._vulnsQueue
         

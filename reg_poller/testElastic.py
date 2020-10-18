@@ -14,6 +14,7 @@ def chunks(list, n):
 
 async def runScanImages(tags, qtde_workers):
     ports = [5011, 5012, 5013, 5014]
+    #ports = [5011, 5012]
     queue_size = len(tags) // qtde_workers
     workers = list(chunks(tags, queue_size))
     print(workers)
@@ -33,12 +34,14 @@ async def executeQueue(queue, port):
         if res.status_code != 200:
             print("error " + url)
             print(res.status_code)
+            print(payload)
         count += 1
         ee = time.perf_counter() - ss
-        print(f" DONE {port} {count}/{qtde} {ee:0.2f} seconds")
+        print(f" DONE {port} {count}/{qtde} {q} {ee:0.2f} seconds")
 
 
-url = 'https://lobs.local'
+reg = 'lobs.local'
+url = 'https://' + reg
 user = 'testuser'
 passwd = 'testpassword'
 r = Registry(url, user, passwd)
@@ -49,27 +52,36 @@ s = time.perf_counter()
 tag_list = []
 for repo in r._tags:
     for t in repo['tags']:
-        tag = repo['repo'] + ':' + t
-        tag_list.append(tag)
+        elem = {
+            'registry': reg,
+            'repo': repo['repo'],
+            'tag': t
+        }
+        #tag = repo['repo'] + ':' + t
+        #tag_list.append(tag)
+        tag_list.append(elem)
 print(tag_list)
 
 # first sequential
-#session = requests.Session()
+session = requests.Session()
 qtde = len(tag_list)
 count = 0
-#for t in tag_list:
-#    ss = time.perf_counter()
-#    print(f"going to scan {t} ...")
-#    payload = {'image': t}
-#    res = session.post('http://lobs.local:5011/scan', data=payload)    
-#    print(res.status_code)
-#    ee = time.perf_counter() - ss
-#    count += 1
-#    print(f" DONE {count}/{qtde} {ee:0.2f} seconds")
+for t in tag_list:
+    ss = time.perf_counter()
+    print(f"going to scan {t} ...")
+    #payload = {'image': t}
+    payload = t
+    payload['push'] = True
+    res = session.post('http://localhost:5010/scan', data=payload)    
+    print(res.status_code)
+    ee = time.perf_counter() - ss
+    count += 1
+    print(f" DONE {count}/{qtde} {ee:0.2f} seconds")
     
 
 
-asyncio.run(runScanImages(tag_list, 4))
+
+#asyncio.run(runScanImages(tag_list, 4))
 elapsed = time.perf_counter() - s
 print(f"{elapsed:0.2f} seconds")
 

@@ -45,26 +45,37 @@ async def runParallel(image, push=False):
         conf._data['es_vulns_path']
     )
 
-    image_path = conf._data['registry_url'] + '/' + image
+    #image_path = conf._data['registry_url'] + '/' + image
 
-    await p.pullImage(image_path)
-
+    image_path = f"{image['registry']}/{image['repo']}:{image['tag']}"
+    await p.pullImage(image)
+    
     result = await asyncio.gather(
         p.getPkgs(image), 
-        t.scan(image_path, local=True)
+        t.scan(image, local=True)
     )
 
     if push:
         xx = await asyncio.gather(
-            e.addBulkPkgs(image_path, result[0]),
-            e.addBulkVulns(image_path, result[1])
+            e.addBulkPkgs(result[0]),
+            e.addBulkVulns(result[1])
         )
  
 
 @app.route('/scan', methods=['POST'])
 def image_scan():
     s = time.perf_counter()
-    image = request.form['image']
+    if not 'registry' in request.form:
+        raise ValueError
+    if not 'repo' in request.form:
+        raise ValueError
+    if not 'tag' in request.form:
+        raise ValueError
+
+    reg = request.form['registry']
+    repo = request.form['repo']
+    tag = request.form['tag']
+    image = {'registry': reg, 'repo': repo, 'tag': tag}
     push = False
     if 'push' in request.form:
         push = True

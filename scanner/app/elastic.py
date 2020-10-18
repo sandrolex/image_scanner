@@ -79,46 +79,54 @@ class Elastic():
         elapsed = time.perf_counter() - s
         logging.debug(f"{self.i} Done pkgs {elapsed:0.2f} seconds")
     
-    async def addBulkPkgs(self, image, pkgs):
+    async def addBulkPkgs(self, pkgs):
         session = arequests.Session()
         headers = {'Content-Type': 'application/json'}
         pkgs_url = self._url + self._pkgPath + '/_bulk?pretty&refresh'
         out = ''
+        image_path = f"{pkgs['registry']}/{pkgs['repo']}:{pkgs['tag']}"
         for l in pkgs['pkgs']:
-            name = self.createHash(l['name'], l['version'])
+            pkg_str = f"{l['name']}:{l['version']}"
+            name = self.createHash(image_path, pkg_str)
             idx = {'index': {'_id': name}}
             out += json.dumps(idx) + '\n'
             l['index'] = name
-            l['image'] = image
+            l['image'] = image_path
             l['flavor'] = pkgs['flavor']
+            l['registry'] = pkgs['registry']
+            l['repo'] = pkgs['repo']
+            l['tag'] = pkgs['tag']
             out += json.dumps(l) + '\n'
 
         res = await session.post(pkgs_url, headers=headers, data=out)
+        #print(res.text)
+        #print(res.status_code)
+        
         if res.status_code != 200 and res.status_code != 201:
-            logging.error(f"{self.i} Error writing pkgs for image {image}")
+            logging.error(f"{self.i} Error writing pkgs for image {image_path}")
             return False
         
-        logging.debug(f"{self.i} Done Writing pkgs in elastic for {image}")
+        logging.debug(f"{self.i} Done Writing pkgs in elastic for {image_path}")
         return True
 
-    async def addBulkVulns(self, image, vulns):
+    async def addBulkVulns(self, vulns):
         session = arequests.Session()
         headers = {'Content-Type': 'application/json'}
         pkgs_url = self._url + self._vulnPath + '/_bulk?pretty&refresh'
         out = ''
         for v in vulns:
-            name = self.createHash(v['image'], v['vulnId'])
+            image_path = f"{v['registry']}/{v['repo']}:{v['tag']}"
+            name = self.createHash(image_path, v['vulnId'])
             idx = {'index': {'_id': name}}
             out += json.dumps(idx) + '\n'
-            v['index'] = name
             out += json.dumps(v) + '\n'
     
         res = await session.post(pkgs_url, headers=headers, data=out)
         if res.status_code != 200 and res.status_code != 201:
-            logging.error(f"{self.i} Error writing vulns for image {image}")
+            logging.error(f"{self.i} Error writing vulns for image {image_path}")
             return False
         
-        logging.debug(f"{self.i} Done Writing vulns in elastic for {image}")
+        logging.debug(f"{self.i} Done Writing vulns in elastic for {image_path}")
         return True
 
 

@@ -1,13 +1,22 @@
 1. add logger ... reg_poller
 2. add configuration ... reg_poller
-2. split trivy / pkgs
-3. split ES
 4. clean up (rm /tmp/json && docker rmi)
-5. Check data in ES (looks like some are not written, ex: debian buster)
 6. Put trivy server in the same container as api
 7. alpine linux
 8. test with differente regs
 9. test scalling out
+8. add unit tests
+10. add more modules for controling (check pacakges, check root, )
+11. understand how trivy / snyk works... can trivy do the pkgs job? 
+12. document backends setup (elastic / registry / trivy)
+13. docker compose? 
+14. add volumes to ES
+15. add auth to ES
+16. add TLS to ES
+17. use different field for tag reg and repo
+18. fix the endpoint, image, etc...use unique interface
+19. send logs to ELK... logstash?? 
+20. add multiple registry confs
 
 Later
 - mTLS

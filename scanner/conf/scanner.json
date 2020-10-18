@@ -1,6 +1,6 @@
 {
     "port": 5010,
-    "log_level": "INFO",
+    "log_level": "DEBUG",
     "registry_url": "lobs.local",
     "registry_user": "testuser",
     "registry_password": "testpassword",
